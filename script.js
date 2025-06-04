@@ -135,7 +135,7 @@ async function syncToGitHub() {
         try {
             const response = await fetch(`https://api.github.com/repos/${config.GITHUB_OWNER}/${config.GITHUB_REPO}/contents/${config.DATA_FILE_PATH}`, {
                 headers: {
-                    'Authorization': `token ${config.GITHUB_TOKEN}`,
+                    'Authorization': `Bearer ${config.GITHUB_TOKEN}`,
                     'Accept': 'application/vnd.github.v3+json'
                 }
             });
@@ -151,7 +151,7 @@ async function syncToGitHub() {
         const response = await fetch(`https://api.github.com/repos/${config.GITHUB_OWNER}/${config.GITHUB_REPO}/contents/${config.DATA_FILE_PATH}`, {
             method: 'PUT',
             headers: {
-                'Authorization': `token ${config.GITHUB_TOKEN}`,
+                'Authorization': `Bearer ${config.GITHUB_TOKEN}`,
                 'Accept': 'application/vnd.github.v3+json'
             },
             body: JSON.stringify({
@@ -162,7 +162,8 @@ async function syncToGitHub() {
         });
 
         if (!response.ok) {
-            throw new Error('Failed to update GitHub');
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to update GitHub');
         }
         
         syncStatus.textContent = '保存成功';
