@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学习记录追踪器</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://pan.baidu.com/api/js"></script>
+    <script src="https://gosspublic.alicdn.com/aliyun-oss-sdk-6.16.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/github-api@latest/dist/GitHub.bundle.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>学习记录追踪器</h1>
+            <p class="date" id="current-date"></p>
+            <div class="sync-status">
+                <span id="sync-status">未同步</span>
+                <button id="sync-btn" class="sync-btn">保存到云端</button>
+                <button id="restore-btn" class="restore-btn">从云端恢复</button>
+            </div>
+        </header>
+
+        <main>
+            <section class="input-section">
+                <h2>今日学习记录</h2>
+                <form id="study-form">
+                    <div class="form-group">
+                        <label for="subject">学习科目：</label>
+                        <input type="text" id="subject" required placeholder="例如：数学、英语等">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="duration">学习时长（分钟）：</label>
+                        <input type="number" id="duration" required min="1" placeholder="输入学习时长">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="notes">学习笔记：</label>
+                        <textarea id="notes" rows="4" placeholder="记录今天的学习内容和心得..."></textarea>
+                    </div>
+
+                    <button type="submit" class="submit-btn">保存记录</button>
+                </form>
+            </section>
+
+            <section class="history-section">
+                <h2>学习历史</h2>
+                <div class="history-filters">
+                    <select id="filter-date">
+                        <option value="all">所有记录</option>
+                        <option value="today">今天</option>
+                        <option value="week">本周</option>
+                        <option value="month">本月</option>
+                    </select>
+                </div>
+                <div id="history-list" class="history-list">
+                    <!-- 历史记录将通过JavaScript动态添加 -->
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>© 2024 学习记录追踪器</p>
+        </footer>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html> 
