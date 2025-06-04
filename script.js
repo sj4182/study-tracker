@@ -12,19 +12,6 @@ const syncBtn = document.getElementById('sync-btn');
 const restoreBtn = document.getElementById('restore-btn');
 const syncStatus = document.getElementById('sync-status');
 
-// GitHub配置
-const GITHUB_CONFIG = {
-    username: 'YOUR_GITHUB_USERNAME',
-    repo: 'study-tracker',
-    token: 'YOUR_GITHUB_TOKEN',
-    filePath: 'data/records.json'
-};
-
-// 初始化GitHub客户端
-const github = new GitHub({
-    token: GITHUB_CONFIG.token
-});
-
 // 初始化日期显示
 function updateCurrentDate() {
     const now = new Date();
@@ -132,32 +119,6 @@ function deleteRecord(id) {
     }
 }
 
-// 事件监听
-studyForm.addEventListener('submit', saveStudyRecord);
-filterDate.addEventListener('change', displayRecords);
-
-// 初始化
-updateCurrentDate();
-displayRecords();
-
-// 添加删除按钮样式
-const style = document.createElement('style');
-style.textContent = `
-    .delete-btn {
-        background-color: #e74c3c;
-        color: white;
-        border: none;
-        padding: 5px 10px;
-        border-radius: 3px;
-        cursor: pointer;
-        margin-top: 10px;
-    }
-    .delete-btn:hover {
-        background-color: #c0392b;
-    }
-`;
-document.head.appendChild(style);
-
 // 同步数据到GitHub
 async function syncToGitHub() {
     try {
@@ -167,30 +128,42 @@ async function syncToGitHub() {
 
         // 获取本地数据
         const records = JSON.parse(localStorage.getItem('studyRecords') || '[]');
-        const dataStr = JSON.stringify(records, null, 2);
+        const dataStr = JSON.stringify({ records }, null, 2);
         
         // 获取文件SHA（如果存在）
         let sha;
         try {
-            const { data } = await github.repos.getContents({
-                owner: GITHUB_CONFIG.username,
-                repo: GITHUB_CONFIG.repo,
-                path: GITHUB_CONFIG.filePath
+            const response = await fetch(`https://api.github.com/repos/${config.GITHUB_OWNER}/${config.GITHUB_REPO}/contents/${config.DATA_FILE_PATH}`, {
+                headers: {
+                    'Authorization': `token ${config.GITHUB_TOKEN}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
             });
-            sha = data.sha;
+            if (response.ok) {
+                const data = await response.json();
+                sha = data.sha;
+            }
         } catch (error) {
             // 文件不存在，不需要SHA
         }
 
         // 上传到GitHub
-        await github.repos.createOrUpdateFileContents({
-            owner: GITHUB_CONFIG.username,
-            repo: GITHUB_CONFIG.repo,
-            path: GITHUB_CONFIG.filePath,
-            message: 'Update study records',
-            content: btoa(unescape(encodeURIComponent(dataStr))),
-            sha: sha
+        const response = await fetch(`https://api.github.com/repos/${config.GITHUB_OWNER}/${config.GITHUB_REPO}/contents/${config.DATA_FILE_PATH}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `token ${config.GITHUB_TOKEN}`,
+                'Accept': 'application/vnd.github.v3+json'
+            },
+            body: JSON.stringify({
+                message: 'Update study records',
+                content: btoa(unescape(encodeURIComponent(dataStr))),
+                sha: sha
+            })
         });
+
+        if (!response.ok) {
+            throw new Error('Failed to update GitHub');
+        }
         
         syncStatus.textContent = '保存成功';
         syncStatus.className = 'sync-success';
@@ -212,21 +185,29 @@ async function restoreFromGitHub() {
         syncStatus.textContent = '正在恢复...';
         syncStatus.className = '';
 
-        // 从GitHub下载数据
-        const { data } = await github.repos.getContents({
-            owner: GITHUB_CONFIG.username,
-            repo: GITHUB_CONFIG.repo,
-            path: GITHUB_CONFIG.filePath
+        const response = await fetch(`https://api.github.com/repos/${config.GITHUB_OWNER}/${config.GITHUB_REPO}/contents/${config.DATA_FILE_PATH}`, {
+            headers: {
+                'Authorization': `token ${config.GITHUB_TOKEN}`,
+                'Accept': 'application/vnd.github.v3+json'
+            }
         });
-        
-        const content = decodeURIComponent(escape(atob(data.content)));
-        const records = JSON.parse(content);
-        
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch from GitHub');
+        }
+
+        const data = await response.json();
+        const content = atob(data.content);
+        const records = JSON.parse(content).records;
+
+        // 保存到localStorage
         localStorage.setItem('studyRecords', JSON.stringify(records));
+        
+        // 更新显示
+        displayRecords();
+        
         syncStatus.textContent = '恢复成功';
         syncStatus.className = 'sync-success';
-        // 刷新显示
-        displayRecords();
     } catch (error) {
         console.error('恢复失败:', error);
         syncStatus.textContent = '恢复失败: ' + error.message;
@@ -242,21 +223,47 @@ function checkSyncStatus() {
     if (lastSyncTime) {
         const lastSync = new Date(lastSyncTime);
         const now = new Date();
-        const diffHours = (now - lastSync) / (1000 * 60 * 60);
+        const diff = now - lastSync;
+        const hours = Math.floor(diff / (1000 * 60 * 60));
         
-        if (diffHours < 24) {
-            syncStatus.textContent = `上次同步: ${lastSync.toLocaleString()}`;
+        if (hours < 24) {
+            syncStatus.textContent = `上次同步: ${hours}小时前`;
             syncStatus.className = 'sync-success';
         } else {
             syncStatus.textContent = '需要同步';
-            syncStatus.className = 'sync-error';
+            syncStatus.className = 'sync-warning';
         }
+    } else {
+        syncStatus.textContent = '未同步';
+        syncStatus.className = 'sync-warning';
     }
 }
 
 // 事件监听
+studyForm.addEventListener('submit', saveStudyRecord);
+filterDate.addEventListener('change', displayRecords);
 syncBtn.addEventListener('click', syncToGitHub);
 restoreBtn.addEventListener('click', restoreFromGitHub);
 
-// 初始化检查
-checkSyncStatus(); 
+// 初始化
+updateCurrentDate();
+displayRecords();
+checkSyncStatus();
+
+// 添加删除按钮样式
+const style = document.createElement('style');
+style.textContent = `
+    .delete-btn {
+        background-color: #e74c3c;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 3px;
+        cursor: pointer;
+        margin-top: 10px;
+    }
+    .delete-btn:hover {
+        background-color: #c0392b;
+    }
+`;
+document.head.appendChild(style); 
